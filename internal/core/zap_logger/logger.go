@@ -18,14 +18,14 @@ type Logger struct {
 
 func New() (*Logger, error) {
 	startTime := time.Now().Format("2006-01-02_15-04-05")
-	logDir := filepath.Join("logs", startTime)
+	logDir := filepath.Clean(filepath.Join("logs", startTime))
 
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0750); err != nil {
 		return nil, fmt.Errorf("create log directory: %w", err)
 	}
 
-	logFilePath := filepath.Join(logDir, "logs.json")
-	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFilePath := filepath.Clean(filepath.Join(logDir, "logs.json"))
+	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("open log file: %w", err)
 	}
@@ -51,5 +51,5 @@ func (l *Logger) WithCtx(ctx context.Context) *zap.Logger {
 	if id == "" {
 		return l.Logger
 	}
-	return l.Logger.With(zap.String("corrid", id))
+	return l.With(zap.String("corrid", id))
 }

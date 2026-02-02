@@ -47,7 +47,9 @@ func New() (*App, error) {
 }
 
 func (a *App) Run() error {
-	defer a.log.Sync()
+	defer func() {
+		_ = a.log.Sync()
+	}()
 
 	if err := a.client.Connect(); err != nil {
 		return fmt.Errorf("app run: %w", err)

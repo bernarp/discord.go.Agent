@@ -49,7 +49,12 @@ func (eb *EventBus) Publish(
 	eventType EventType,
 	payload any,
 ) {
-	corrid := eb.generateHash()
+	corrid, err := eb.generateHash()
+	if err != nil {
+		eb.log.Error("failed to generate correlation id", zap.Error(err))
+		corrid = "unknown"
+	}
+
 	baseCtx := ctxtrace.WithCorrelationID(context.Background(), corrid)
 
 	eb.mu.RLock()
@@ -64,7 +69,7 @@ func (eb *EventBus) Publish(
 		return
 	}
 
-	eb.log.WithCtx(baseCtx).Debug(
+	eb.log.WithCtx(baseCtx).Info(
 		"publishing event",
 		zap.String("event", string(eventType)),
 		zap.Int("handlers_count", len(handlers)),
@@ -99,8 +104,10 @@ func (eb *EventBus) executeHandler(
 	h(ctx, payload)
 }
 
-func (eb *EventBus) generateHash() string {
+func (eb *EventBus) generateHash() (string, error) {
 	b := make([]byte, 4)
-	rand.Read(b)
-	return fmt.Sprintf("%x", b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("rand read: %w", err)
+	}
+	return fmt.Sprintf("%x", b), nil
 }
