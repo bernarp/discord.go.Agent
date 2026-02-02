@@ -7,77 +7,58 @@ on:
     branches: [main, master, develop]
 
 env:
-  GO_VERSION: "1.25"
+  GO_VERSION: '1.25'
 
 jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Download dependencies
-        run: go mod download
+          cache: true
 
       - name: Run tests with race detector
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -race -coverprofile=coverage.out -covermode=atomic -v ./...
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage.out
+          retention-days: 7
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-      - name: Cache Go modules
+      - name: Cache Go binaries
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-bin-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-go-bin-
 
-      - name: Cache golangci-lint
-        uses: actions/cache@v4
+      - uses: golangci/golangci-lint-action@v8
         with:
-          path: ~/.cache/golangci-lint
-          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('.golangci.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-golangci-lint-
+          version: v2.0.2
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
+      - name: Install govulncheck
+        run: |
+          if [ ! -f ~/go/bin/govulncheck ]; then
+            go install golang.org/x/vuln/cmd/govulncheck@latest
+          fi
+
+      - name: Run govulncheck
+        run: ~/go/bin/govulncheck ./...
