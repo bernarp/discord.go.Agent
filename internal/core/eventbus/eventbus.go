@@ -4,12 +4,16 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"runtime/debug"
 	"sync"
+	"time"
 
 	"DiscordBotAgent/internal/core/zap_logger"
 	"DiscordBotAgent/pkg/ctxtrace"
 	"go.uber.org/zap"
 )
+
+const handlerTimeout = 15 * time.Second
 
 type EventType string
 
@@ -39,7 +43,6 @@ func (eb *EventBus) Subscribe(
 	defer eb.mu.Unlock()
 
 	eb.subscribers[eventType] = append(eb.subscribers[eventType], handler)
-	eb.log.Debug("new subscription", zap.String("event", string(eventType)))
 }
 
 func (eb *EventBus) Publish(
@@ -47,30 +50,43 @@ func (eb *EventBus) Publish(
 	payload any,
 ) {
 	corrid := eb.generateHash()
-	ctx := ctxtrace.WithCorrelationID(context.Background(), corrid)
+	baseCtx := ctxtrace.WithCorrelationID(context.Background(), corrid)
 
 	eb.mu.RLock()
 	handlers, ok := eb.subscribers[eventType]
 	eb.mu.RUnlock()
 
 	if !ok {
-		eb.log.WithCtx(ctx).Debug(
-			"no subscribers for event",
-			zap.String("event", string(eventType)),
-		)
 		return
 	}
 
-	eb.log.WithCtx(ctx).Info(
-		"publishing event",
-		zap.String("event", string(eventType)),
-		zap.Int("handlers_count", len(handlers)),
-	)
-
 	for _, handler := range handlers {
 		h := handler
-		go h(ctx, payload)
+		go eb.executeHandler(baseCtx, string(eventType), h, payload)
 	}
+}
+
+func (eb *EventBus) executeHandler(
+	ctx context.Context,
+	eventName string,
+	h Handler,
+	payload any,
+) {
+	ctx, cancel := context.WithTimeout(ctx, handlerTimeout)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			eb.log.WithCtx(ctx).Error(
+				"event handler panicked",
+				zap.String("event", eventName),
+				zap.Any("error", r),
+				zap.String("stack", string(debug.Stack())),
+			)
+		}
+	}()
+
+	h(ctx, payload)
 }
 
 func (eb *EventBus) generateHash() string {
