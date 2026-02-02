@@ -5,6 +5,7 @@ import (
 
 	"DiscordBotAgent/internal/client"
 	config "DiscordBotAgent/internal/core/config_env"
+	"DiscordBotAgent/internal/core/eventbus"
 	"DiscordBotAgent/internal/core/zap_logger"
 	"go.uber.org/zap"
 )
@@ -12,6 +13,7 @@ import (
 type App struct {
 	cfg    *config.Config
 	log    *zap.Logger
+	eb     *eventbus.EventBus
 	client *client.Client
 }
 
@@ -26,7 +28,9 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("app config: %w", err)
 	}
 
-	discordClient, err := client.New(cfg, logger)
+	eb := eventbus.New(logger)
+
+	discordClient, err := client.New(cfg, logger, eb)
 	if err != nil {
 		return nil, fmt.Errorf("app client: %w", err)
 	}
@@ -34,6 +38,7 @@ func New() (*App, error) {
 	return &App{
 		cfg:    cfg,
 		log:    logger,
+		eb:     eb,
 		client: discordClient,
 	}, nil
 }

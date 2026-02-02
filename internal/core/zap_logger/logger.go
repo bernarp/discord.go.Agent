@@ -31,7 +31,7 @@ func New() (*zap.Logger, error) {
 	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(fileEncoder, zapcore.AddSync(file), zap.InfoLevel),
+		zapcore.NewCore(fileEncoder, zapcore.AddSync(file), zap.DebugLevel),
 		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zap.DebugLevel),
 	)
 
