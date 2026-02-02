@@ -1,0 +1,6 @@
+enabled: true
+logDetails:
+  guild: true
+  channel: false
+  author: true
+  content: true

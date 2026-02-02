@@ -1,3 +1,4 @@
+// internal/core/eventbus/eventbus.go
 package eventbus
 
 import (
@@ -10,6 +11,7 @@ import (
 
 	"DiscordBotAgent/internal/core/zap_logger"
 	"DiscordBotAgent/pkg/ctxtrace"
+
 	"go.uber.org/zap"
 )
 
@@ -22,15 +24,23 @@ type Handler func(
 	payload any,
 )
 
+type SubscriptionID string
+
+type subscriber struct {
+	id      SubscriptionID
+	handler Handler
+}
+
 type EventBus struct {
 	mu          sync.RWMutex
-	subscribers map[EventType][]Handler
+	subscribers map[EventType][]subscriber
 	log         *zap_logger.Logger
+	idCounter   int64
 }
 
 func New(log *zap_logger.Logger) *EventBus {
 	return &EventBus{
-		subscribers: make(map[EventType][]Handler),
+		subscribers: make(map[EventType][]subscriber),
 		log:         log,
 	}
 }
@@ -38,11 +48,46 @@ func New(log *zap_logger.Logger) *EventBus {
 func (eb *EventBus) Subscribe(
 	eventType EventType,
 	handler Handler,
-) {
+) SubscriptionID {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
-	eb.subscribers[eventType] = append(eb.subscribers[eventType], handler)
+	eb.idCounter++
+	id := SubscriptionID(fmt.Sprintf("%s_%d", eventType, eb.idCounter))
+
+	eb.subscribers[eventType] = append(
+		eb.subscribers[eventType], subscriber{
+			id:      id,
+			handler: handler,
+		},
+	)
+
+	eb.log.Debug(
+		"handler subscribed",
+		zap.String("event", string(eventType)),
+		zap.String("id", string(id)),
+	)
+
+	return id
+}
+
+func (eb *EventBus) Unsubscribe(id SubscriptionID) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+
+	for eventType, subs := range eb.subscribers {
+		for i, sub := range subs {
+			if sub.id == id {
+				eb.subscribers[eventType] = append(subs[:i], subs[i+1:]...)
+				eb.log.Debug(
+					"handler unsubscribed",
+					zap.String("event", string(eventType)),
+					zap.String("id", string(id)),
+				)
+				return
+			}
+		}
+	}
 }
 
 func (eb *EventBus) Publish(
@@ -58,10 +103,11 @@ func (eb *EventBus) Publish(
 	baseCtx := ctxtrace.WithCorrelationID(context.Background(), corrid)
 
 	eb.mu.RLock()
-	handlers, ok := eb.subscribers[eventType]
+	subs := make([]subscriber, len(eb.subscribers[eventType]))
+	copy(subs, eb.subscribers[eventType])
 	eb.mu.RUnlock()
 
-	if !ok {
+	if len(subs) == 0 {
 		eb.log.WithCtx(baseCtx).Debug(
 			"event published but no subscribers found",
 			zap.String("event", string(eventType)),
@@ -72,12 +118,11 @@ func (eb *EventBus) Publish(
 	eb.log.WithCtx(baseCtx).Info(
 		"publishing event",
 		zap.String("event", string(eventType)),
-		zap.Int("handlers_count", len(handlers)),
+		zap.Int("handlers_count", len(subs)),
 	)
 
-	for _, handler := range handlers {
-		h := handler
-		go eb.executeHandler(baseCtx, string(eventType), h, payload)
+	for _, sub := range subs {
+		go eb.executeHandler(baseCtx, string(eventType), sub.handler, payload)
 	}
 }
 

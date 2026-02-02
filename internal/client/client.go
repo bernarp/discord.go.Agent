@@ -6,6 +6,7 @@ import (
 	"DiscordBotAgent/internal/core/config_env"
 	"DiscordBotAgent/internal/core/eventbus"
 	"DiscordBotAgent/internal/core/zap_logger"
+
 	"github.com/bwmarrin/discordgo"
 )
 

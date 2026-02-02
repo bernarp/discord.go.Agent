@@ -1,4 +1,4 @@
-package template
+package template2
 
 import (
 	"context"
@@ -14,21 +14,18 @@ type Service struct {
 }
 
 func NewService(log *zap_logger.Logger) *Service {
-	return &Service{
-		log: log,
-	}
+	return &Service{log: log}
 }
 
-func (s *Service) LogMessageDetails(
+func (s *Service) ProcessMessage(
 	ctx context.Context,
 	m *discordgo.MessageCreate,
+	cfg Config,
 ) {
 	s.log.WithCtx(ctx).Info(
-		"new message received",
-		zap.String("guild_id", m.GuildID),
-		zap.String("channel_id", m.ChannelID),
-		zap.String("author_id", m.Author.ID),
-		zap.String("author_name", m.Author.Username),
+		"template2 processed message",
+		zap.String("prefix", cfg.Prefix),
 		zap.String("content", m.Content),
+		zap.Int("max_logs", cfg.MaxLogs),
 	)
 }
