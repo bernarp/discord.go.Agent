@@ -1,27 +1,30 @@
 package eventbus
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"sync"
 
+	"DiscordBotAgent/internal/core/zap_logger"
+	"DiscordBotAgent/pkg/ctxtrace"
 	"go.uber.org/zap"
 )
 
 type EventType string
 
 type Handler func(
-	corrid string,
+	ctx context.Context,
 	payload any,
 )
 
 type EventBus struct {
 	mu          sync.RWMutex
 	subscribers map[EventType][]Handler
-	log         *zap.Logger
+	log         *zap_logger.Logger
 }
 
-func New(log *zap.Logger) *EventBus {
+func New(log *zap_logger.Logger) *EventBus {
 	return &EventBus{
 		subscribers: make(map[EventType][]Handler),
 		log:         log,
@@ -44,29 +47,29 @@ func (eb *EventBus) Publish(
 	payload any,
 ) {
 	corrid := eb.generateHash()
+	ctx := ctxtrace.WithCorrelationID(context.Background(), corrid)
 
 	eb.mu.RLock()
 	handlers, ok := eb.subscribers[eventType]
 	eb.mu.RUnlock()
 
 	if !ok {
-		eb.log.Debug(
+		eb.log.WithCtx(ctx).Debug(
 			"no subscribers for event",
 			zap.String("event", string(eventType)),
-			zap.String("corrid", corrid),
 		)
 		return
 	}
 
-	eb.log.Info(
+	eb.log.WithCtx(ctx).Info(
 		"publishing event",
 		zap.String("event", string(eventType)),
-		zap.String("corrid", corrid),
 		zap.Int("handlers_count", len(handlers)),
 	)
 
 	for _, handler := range handlers {
-		go handler(corrid, payload)
+		h := handler
+		go h(ctx, payload)
 	}
 }
 

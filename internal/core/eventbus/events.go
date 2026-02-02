@@ -8,5 +8,5 @@ const (
 	GuildCreate EventType = "guild.create"
 	GuildDelete EventType = "guild.delete"
 
-	Ready EventType = "ready"
+	ReadyDiscordGateway EventType = "ready"
 )

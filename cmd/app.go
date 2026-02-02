@@ -7,12 +7,11 @@ import (
 	config "DiscordBotAgent/internal/core/config_env"
 	"DiscordBotAgent/internal/core/eventbus"
 	"DiscordBotAgent/internal/core/zap_logger"
-	"go.uber.org/zap"
 )
 
 type App struct {
 	cfg    *config.Config
-	log    *zap.Logger
+	log    *zap_logger.Logger
 	eb     *eventbus.EventBus
 	client *client.Client
 }
@@ -49,10 +48,7 @@ func (a *App) Run() error {
 	if err := a.client.Connect(); err != nil {
 		return fmt.Errorf("app run: %w", err)
 	}
-
 	a.log.Info("application started")
-
 	a.WaitGracefulShutdown()
-
 	return nil
 }

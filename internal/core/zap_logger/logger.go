@@ -1,16 +1,22 @@
 package zap_logger
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"DiscordBotAgent/pkg/ctxtrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func New() (*zap.Logger, error) {
+type Logger struct {
+	*zap.Logger
+}
+
+func New() (*Logger, error) {
 	startTime := time.Now().Format("2006-01-02_15-04-05")
 	logDir := filepath.Join("logs", startTime)
 
@@ -35,5 +41,15 @@ func New() (*zap.Logger, error) {
 		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zap.DebugLevel),
 	)
 
-	return zap.New(core, zap.AddCaller()), nil
+	return &Logger{
+		Logger: zap.New(core, zap.AddCaller()),
+	}, nil
+}
+
+func (l *Logger) WithCtx(ctx context.Context) *zap.Logger {
+	id := ctxtrace.Extract(ctx)
+	if id == "" {
+		return l.Logger
+	}
+	return l.Logger.With(zap.String("corrid", id))
 }

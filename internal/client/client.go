@@ -5,19 +5,19 @@ import (
 
 	"DiscordBotAgent/internal/core/config_env"
 	"DiscordBotAgent/internal/core/eventbus"
+	"DiscordBotAgent/internal/core/zap_logger"
 	"github.com/bwmarrin/discordgo"
-	"go.uber.org/zap"
 )
 
 type Client struct {
 	Session *discordgo.Session
-	log     *zap.Logger
+	log     *zap_logger.Logger
 	eb      *eventbus.EventBus
 }
 
 func New(
 	cfg *config.Config,
-	log *zap.Logger,
+	log *zap_logger.Logger,
 	eb *eventbus.EventBus,
 ) (*Client, error) {
 	session, err := discordgo.New("Bot " + cfg.BotToken)
@@ -54,7 +54,7 @@ func (c *Client) registerInternalHandlers() {
 			s *discordgo.Session,
 			r *discordgo.Ready,
 		) {
-			c.eb.Publish(eventbus.Ready, r)
+			c.eb.Publish(eventbus.ReadyDiscordGateway, r)
 		},
 	)
 }
