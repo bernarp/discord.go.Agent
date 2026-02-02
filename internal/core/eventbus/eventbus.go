@@ -57,8 +57,18 @@ func (eb *EventBus) Publish(
 	eb.mu.RUnlock()
 
 	if !ok {
+		eb.log.WithCtx(baseCtx).Debug(
+			"event published but no subscribers found",
+			zap.String("event", string(eventType)),
+		)
 		return
 	}
+
+	eb.log.WithCtx(baseCtx).Debug(
+		"publishing event",
+		zap.String("event", string(eventType)),
+		zap.Int("handlers_count", len(handlers)),
+	)
 
 	for _, handler := range handlers {
 		h := handler

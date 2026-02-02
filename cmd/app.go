@@ -1,6 +1,7 @@
 package main
 
 import (
+	template "DiscordBotAgent/internal/modules/teamplate"
 	"fmt"
 
 	"DiscordBotAgent/internal/client"
@@ -29,6 +30,9 @@ func New() (*App, error) {
 
 	eb := eventbus.New(logger)
 
+	templateModule := template.New(logger, eb)
+	templateModule.Init()
+
 	discordClient, err := client.New(cfg, logger, eb)
 	if err != nil {
 		return nil, fmt.Errorf("app client: %w", err)
@@ -48,7 +52,9 @@ func (a *App) Run() error {
 	if err := a.client.Connect(); err != nil {
 		return fmt.Errorf("app run: %w", err)
 	}
+
 	a.log.Info("application started")
 	a.WaitGracefulShutdown()
+
 	return nil
 }
