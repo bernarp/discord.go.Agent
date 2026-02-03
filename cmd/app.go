@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"DiscordBotAgent/internal/api"
+	"DiscordBotAgent/internal/api/apierror"
 	"DiscordBotAgent/internal/client"
 	config "DiscordBotAgent/internal/core/config_env"
 	"DiscordBotAgent/internal/core/config_manager"
@@ -11,6 +13,8 @@ import (
 	"DiscordBotAgent/internal/core/zap_logger"
 	"DiscordBotAgent/internal/modules/template"
 	"DiscordBotAgent/internal/modules/template2"
+
+	"go.uber.org/zap"
 )
 
 type App struct {
@@ -20,6 +24,7 @@ type App struct {
 	configMgr *config_manager.Manager
 	moduleMgr *module_manager.Manager
 	client    *client.Client
+	api       *api.Server
 }
 
 func New() (*App, error) {
@@ -31,6 +36,10 @@ func New() (*App, error) {
 	logger, err := zap_logger.New()
 	if err != nil {
 		return nil, fmt.Errorf("app logger: %w", err)
+	}
+
+	if err := apierror.Init(logger.Logger); err != nil {
+		return nil, fmt.Errorf("api errors init: %w", err)
 	}
 
 	configMgr, err := config_manager.New(logger, "config_df", "config_mrg")
@@ -56,6 +65,8 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("app client: %w", err)
 	}
 
+	apiServer := api.New(logger, moduleMgr)
+
 	return &App{
 		cfg:       cfg,
 		log:       logger,
@@ -63,6 +74,7 @@ func New() (*App, error) {
 		configMgr: configMgr,
 		moduleMgr: moduleMgr,
 		client:    discordClient,
+		api:       apiServer,
 	}, nil
 }
 
@@ -74,6 +86,14 @@ func (a *App) Run() error {
 
 	if err := a.client.Connect(); err != nil {
 		return fmt.Errorf("app run: %w", err)
+	}
+
+	if a.cfg.Port != "" {
+		if err := a.api.Start(a.cfg.Port); err != nil {
+			a.log.Error("failed to start api server", zap.Error(err))
+		}
+	} else {
+		a.log.Info("api server skipped (no port provided)")
 	}
 
 	a.log.Info("application started")

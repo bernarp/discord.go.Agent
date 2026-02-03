@@ -1,0 +1,80 @@
+errors:
+  INTERNAL_ERROR:
+    status: 500
+    message: "Internal server error"
+
+  INVALID_REQUEST:
+    status: 400
+    message: "Invalid request format"
+
+  VALIDATION_FAILED:
+    status: 400
+    message: "Request validation failed"
+
+  UNAUTHORIZED:
+    status: 401
+    message: "Authentication required"
+
+  INVALID_API_KEY:
+    status: 401
+    message: "Invalid API key"
+
+  PERMISSION_DENIED:
+    status: 403
+    message: "Access denied to this resource"
+
+  RATE_LIMIT_EXCEEDED:
+    status: 429
+    message: "Too many requests, please try again later"
+
+  MODULE_NOT_FOUND:
+    status: 404
+    message: "Specified module not found"
+
+  MODULE_ALREADY_ENABLED:
+    status: 409
+    message: "Module is already enabled"
+
+  MODULE_ALREADY_DISABLED:
+    status: 409
+    message: "Module is already disabled"
+
+  MODULE_DEPENDENCY_MISSING:
+    status: 424
+    message: "Cannot enable module: required dependency is disabled"
+
+  MODULE_HAS_DEPENDENTS:
+    status: 409
+    message: "Cannot disable module: other modules depend on it"
+
+  CONFIG_NOT_FOUND:
+    status: 404
+    message: "Configuration not found"
+
+  CONFIG_INVALID:
+    status: 400
+    message: "Configuration validation failed"
+
+  CONFIG_PARSE_ERROR:
+    status: 400
+    message: "Failed to parse configuration file"
+
+  DISCORD_NOT_CONNECTED:
+    status: 503
+    message: "Discord gateway is not connected"
+
+  DISCORD_GUILD_NOT_FOUND:
+    status: 404
+    message: "Discord guild not found"
+
+  DISCORD_CHANNEL_NOT_FOUND:
+    status: 404
+    message: "Discord channel not found"
+
+  DISCORD_API_ERROR:
+    status: 502
+    message: "Discord API request failed"
+
+  EVENT_HANDLER_TIMEOUT:
+    status: 504
+    message: "Event handler execution timed out"

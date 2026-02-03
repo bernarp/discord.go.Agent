@@ -12,6 +12,7 @@ type StartupConfig struct {
 	Prefix  string
 	AppID   string
 	GuildID string
+	Port    string
 }
 
 func GetStartupConfig() (*StartupConfig, error) {
@@ -29,6 +30,7 @@ func GetStartupConfig() (*StartupConfig, error) {
 	conf.Prefix = loadOrPrompt(EnvPrefixKey, FilePrefix, "PREFIX", "!", false, ValidatePrefix, key)
 	conf.AppID = loadOrPrompt(EnvAppIDKey, FileAppID, "APP_ID", "1129747578100000000", false, ValidateID, key)
 	conf.GuildID = loadOrPrompt(EnvGuildIDKey, FileGuildID, "GUILD_ID", "1074340840000000000", true, ValidateID, key)
+	conf.Port = loadOrPrompt(EnvPortKey, FilePort, "HTTP_PORT", "8080", true, ValidatePort, key)
 
 	fmt.Println("--------------------------------------------------")
 	return conf, nil
@@ -51,6 +53,9 @@ func loadOrPrompt(
 		if data, err := os.ReadFile(fileName); err == nil {
 			if decrypted, err := decrypt(data, key); err == nil {
 				val := CleanInput(string(decrypted))
+				if val == "" && optional {
+					return ""
+				}
 				if validator(val) {
 					return val
 				}

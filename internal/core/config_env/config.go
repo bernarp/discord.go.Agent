@@ -10,6 +10,7 @@ type Config struct {
 	Prefix   string
 	AppID    string
 	GuildID  string
+	Port     string
 }
 
 func New() (*Config, error) {
@@ -23,5 +24,6 @@ func New() (*Config, error) {
 		Prefix:   sConf.Prefix,
 		AppID:    sConf.AppID,
 		GuildID:  sConf.GuildID,
+		Port:     sConf.Port,
 	}, nil
 }
