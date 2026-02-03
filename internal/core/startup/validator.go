@@ -5,14 +5,17 @@ import (
 	"strings"
 )
 
-var tokenRegex = regexp.MustCompile(TokenRegexPattern)
+var (
+	tokenRegex = regexp.MustCompile(TokenRegexPattern)
+	idRegex    = regexp.MustCompile(IDRegexPattern)
+)
 
-func ValidateToken(token string) bool {
-	return tokenRegex.MatchString(token)
-}
+func ValidateToken(token string) bool { return tokenRegex.MatchString(token) }
+func ValidateID(id string) bool       { return idRegex.MatchString(id) }
+func ValidatePrefix(p string) bool    { return len(p) > 0 && len(p) < 5 }
 
-func CleanToken(token string) string {
-	token = strings.TrimSpace(token)
-	token = strings.Trim(token, `"'`)
-	return token
+func CleanInput(in string) string {
+	in = strings.TrimSpace(in)
+	in = strings.Trim(in, `"'`)
+	return in
 }

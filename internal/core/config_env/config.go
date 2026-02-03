@@ -7,15 +7,21 @@ import (
 
 type Config struct {
 	BotToken string
+	Prefix   string
+	AppID    string
+	GuildID  string
 }
 
 func New() (*Config, error) {
-	token, err := startup.GetBotToken()
+	sConf, err := startup.GetStartupConfig()
 	if err != nil {
 		return nil, fmt.Errorf("startup: %w", err)
 	}
 
 	return &Config{
-		BotToken: token,
+		BotToken: sConf.Token,
+		Prefix:   sConf.Prefix,
+		AppID:    sConf.AppID,
+		GuildID:  sConf.GuildID,
 	}, nil
 }

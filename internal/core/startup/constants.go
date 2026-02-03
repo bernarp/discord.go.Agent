@@ -1,16 +1,30 @@
 package startup
 
 const (
-	TokenFileName = "token.enc"
-	CryptoSalt    = "agent-secure-salt-v1"
-	EnvTokenKey   = "BOT_TOKEN"
-	AppName       = "DiscordBotAgent"
+	CryptoSalt = "agent-secure-salt-v1"
+	AppName    = "DiscordBotAgent"
 )
 
-var EnvFiles = []string{
-	".env.dev",
-	".env",
-}
+// Ключи в .env
+const (
+	EnvTokenKey   = "BOT_TOKEN"
+	EnvPrefixKey  = "PREFIX"
+	EnvAppIDKey   = "APP_ID"
+	EnvGuildIDKey = "GUILD_ID"
+)
 
-//nolint:gosec
-const TokenRegexPattern = `^[\w-]{24,28}\.[\w-]{6}\.[\w-]{27,45}$`
+// Имена зашифрованных файлов
+const (
+	FileToken   = "token.enc"
+	FilePrefix  = "prefix.enc"
+	FileAppID   = "appid.enc"
+	FileGuildID = "guildid.enc"
+)
+
+var EnvFiles = []string{".env.dev", ".env"}
+
+const (
+	//nolint:gosec
+	TokenRegexPattern = `^[\w-]{24,28}\.[\w-]{6}\.[\w-]{27,45}$`
+	IDRegexPattern    = `^\d{17,20}$` // Для AppID и GuildID
+)

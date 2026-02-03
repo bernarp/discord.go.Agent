@@ -2,3 +2,6 @@
 .env.dev
 cmd.exe
 token.enc
+guildid.enc
+appid.enc
+prefix.enc

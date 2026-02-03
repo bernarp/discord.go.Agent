@@ -6,46 +6,44 @@ import (
 	"os"
 )
 
-func promptForToken() (string, error) {
+func promptGeneric(
+	label, example string,
+	optional bool,
+	validator func(string) bool,
+) string {
 	reader := bufio.NewReader(os.Stdin)
-
 	for {
-		fmt.Println("\n--------------------------------------------------")
-		fmt.Println("DISCORD BOT AGENT - STARTUP")
-		fmt.Println("Discord Bot Token not found or invalid.")
-		fmt.Print("Please enter a valid BOT_TOKEN: ")
+		optText := ""
+		if optional {
+			optText = " (optional, press Enter to skip)"
+		}
+		fmt.Printf("Please enter %s%s: ", label, optText)
 
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return "", fmt.Errorf("terminal input: %w", err)
+		input, _ := reader.ReadString('\n')
+		val := CleanInput(input)
+
+		if val == "" && optional {
+			return ""
 		}
 
-		token := CleanToken(input)
-
-		if !ValidateToken(token) {
-			fmt.Println("\n[ERROR] The token format is invalid.")
-			fmt.Println("Example: MzE4... . ... . ...")
-			continue
+		if validator(val) {
+			return val
 		}
 
-		return token, nil
+		fmt.Printf("[ERROR] Invalid %s format. Example: %s\n", label, example)
 	}
 }
 
-func saveEncryptedToken(
-	token string,
+func saveEncrypted(
+	filename, value string,
 	key []byte,
 ) error {
-	encrypted, err := encrypt([]byte(token), key)
+	if value == "" {
+		return nil
+	}
+	encrypted, err := encrypt([]byte(value), key)
 	if err != nil {
-		return fmt.Errorf("encryption: %w", err)
+		return err
 	}
-
-	if err := os.WriteFile(TokenFileName, encrypted, 0600); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
-	fmt.Println("✓ Token successfully encrypted and saved to", TokenFileName)
-	fmt.Println("--------------------------------------------------")
-	return nil
+	return os.WriteFile(filename, encrypted, 0600)
 }

@@ -7,58 +7,61 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func GetBotToken() (string, error) {
+type StartupConfig struct {
+	Token   string
+	Prefix  string
+	AppID   string
+	GuildID string
+}
+
+func GetStartupConfig() (*StartupConfig, error) {
 	for _, file := range EnvFiles {
 		_ = godotenv.Load(file)
 	}
 
-	if token := CleanToken(os.Getenv(EnvTokenKey)); token != "" {
-		if ValidateToken(token) {
-			return token, nil
-		}
-		fmt.Printf("(!) Token in environment failed validation (Length: %d)\n", len(token))
-	}
-
 	key, err := deriveKey()
 	if err != nil {
-		return "", fmt.Errorf("startup key: %w", err)
+		return nil, err
 	}
 
-	if _, err := os.Stat(TokenFileName); err == nil {
-		if token, err := tryLoadFromFile(key); err == nil {
-			return token, nil
-		}
-	}
+	conf := &StartupConfig{}
+	conf.Token = loadOrPrompt(EnvTokenKey, FileToken, "BOT_TOKEN", "MzE4...", false, ValidateToken, key)
+	conf.Prefix = loadOrPrompt(EnvPrefixKey, FilePrefix, "PREFIX", "!", false, ValidatePrefix, key)
+	conf.AppID = loadOrPrompt(EnvAppIDKey, FileAppID, "APP_ID", "1129747578100000000", false, ValidateID, key)
+	conf.GuildID = loadOrPrompt(EnvGuildIDKey, FileGuildID, "GUILD_ID", "1074340840000000000", true, ValidateID, key)
 
-	token, err := promptForToken()
-	if err != nil {
-		return "", err
-	}
-
-	if err := saveEncryptedToken(token, key); err != nil {
-		return "", err
-	}
-
-	return token, nil
+	fmt.Println("--------------------------------------------------")
+	return conf, nil
 }
 
-func tryLoadFromFile(key []byte) (string, error) {
-	data, err := os.ReadFile(TokenFileName)
-	if err != nil {
-		return "", err
+func loadOrPrompt(
+	envKey, fileName, label, example string,
+	optional bool,
+	validator func(string) bool,
+	key []byte,
+) string {
+	if val := CleanInput(os.Getenv(envKey)); val != "" {
+		if validator(val) {
+			return val
+		}
+		fmt.Printf("(!) %s in environment is invalid.\n", label)
 	}
 
-	decrypted, err := decrypt(data, key)
-	if err != nil {
-		fmt.Println("(!) Saved token decryption failed (hardware changed or file corrupted).")
-		return "", err
+	if _, err := os.Stat(fileName); err == nil {
+		if data, err := os.ReadFile(fileName); err == nil {
+			if decrypted, err := decrypt(data, key); err == nil {
+				val := CleanInput(string(decrypted))
+				if validator(val) {
+					return val
+				}
+			}
+		}
+		fmt.Printf("(!) Saved %s is invalid or corrupted.\n", label)
 	}
 
-	token := CleanToken(string(decrypted))
-	if !ValidateToken(token) {
-		fmt.Println("(!) Decrypted token failed validation.")
-		return "", fmt.Errorf("invalid file token")
+	val := promptGeneric(label, example, optional, validator)
+	if val != "" {
+		_ = saveEncrypted(fileName, val, key)
 	}
-
-	return token, nil
+	return val
 }
