@@ -1,6 +1,3 @@
-### Файл `./config_df/README.md`
-
-
 # Default Configurations (config_df)
 
 This directory contains the base configuration files for all bot modules.
