@@ -44,7 +44,16 @@ func (m *Module) ConfigKey() string {
 }
 
 func (m *Module) ConfigTemplate() any {
-	return Config{}
+	defaultEnabled := true
+	return Config{
+		Enabled: &defaultEnabled,
+		LogDetails: LogDetails{
+			Guild:   true,
+			Channel: true,
+			Author:  true,
+			Content: true,
+		},
+	}
 }
 
 func (m *Module) OnEnable(

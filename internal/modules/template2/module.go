@@ -48,7 +48,11 @@ func (m *Module) ConfigKey() string {
 }
 
 func (m *Module) ConfigTemplate() any {
-	return Config{}
+	return Config{
+		Prefix:  "!",
+		Enabled: true,
+		MaxLogs: 100,
+	}
 }
 
 func (m *Module) OnEnable(

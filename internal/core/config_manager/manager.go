@@ -73,7 +73,8 @@ func (m *Manager) Register(
 
 	basePath := filepath.Clean(filepath.Join(m.pathDefault, name+ExtensionYaml))
 
-	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+	info, err := os.Stat(basePath)
+	if os.IsNotExist(err) || (err == nil && info.Size() == 0) {
 		if err := m.createPlaceholder(basePath, template); err != nil {
 			return fmt.Errorf("failed to create placeholder for %s: %w", name, err)
 		}
@@ -108,9 +109,11 @@ func (m *Manager) Register(
 	m.registry[name] = meta
 
 	if callback != nil {
+		m.log.Debug("executing initial configuration callback", zap.String("config", name))
 		callback(cfg, true)
 	}
 
+	m.log.Info("configuration registered and active", zap.String("config", name))
 	return nil
 }
 
@@ -150,7 +153,10 @@ func (m *Manager) PrintReport() {
 
 func (m *Manager) Close() error {
 	if m.watcher != nil {
-		return m.watcher.Close()
+		err := m.watcher.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close config watcher: %w", err)
+		}
 	}
 	return nil
 }
