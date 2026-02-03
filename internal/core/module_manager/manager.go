@@ -2,6 +2,7 @@ package module_manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -43,17 +44,6 @@ func (m *Manager) Register(mod Module) error {
 	}
 
 	deps := scanDependencies(mod)
-
-	for _, depName := range deps {
-		m.mu.RLock()
-		_, depExists := m.modules[depName]
-		m.mu.RUnlock()
-
-		if !depExists {
-			return fmt.Errorf("module %s depends on %s which is not registered yet", name, depName)
-		}
-	}
-
 	state := newModuleState(mod, deps)
 
 	m.mu.Lock()
@@ -63,18 +53,8 @@ func (m *Manager) Register(mod Module) error {
 	}
 	m.mu.Unlock()
 
-	m.log.Info(
-		"module registered",
-		zap.String("module", name),
-		zap.Strings("dependencies", deps),
-	)
-
 	if configKey := mod.ConfigKey(); configKey != "" {
 		template := mod.ConfigTemplate()
-		if template == nil {
-			state.setError("has config key but no template")
-			return fmt.Errorf("module %s has config key but no template", name)
-		}
 
 		err := m.cm.Register(
 			configKey,
@@ -86,7 +66,19 @@ func (m *Manager) Register(mod Module) error {
 				m.onConfigUpdate(name, cfg, isValid)
 			},
 		)
+
 		if err != nil {
+			if errors.Is(err, config_manager.ErrPlaceholderCreated) {
+				m.log.Warn(
+					"MODULE DISABLED: configuration file was missing",
+					zap.String("module", name),
+					zap.String("config_file", configKey+config_manager.ExtensionYaml),
+					zap.String("action", "Please check config_df folder and fill the generated file"),
+				)
+				state.setDisabled("missing configuration (placeholder created)")
+				return nil
+			}
+
 			state.setError(fmt.Sprintf("config registration failed: %v", err))
 			return fmt.Errorf("module %s config registration: %w", name, err)
 		}

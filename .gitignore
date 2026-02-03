@@ -1,2 +1,4 @@
 /logs
 .env.dev
+cmd.exe
+token.enc

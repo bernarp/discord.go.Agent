@@ -3,6 +3,7 @@ package config_manager
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"time"
@@ -70,6 +71,23 @@ func (m *Manager) Register(
 		t = t.Elem()
 	}
 
+	basePath := filepath.Clean(filepath.Join(m.pathDefault, name+ExtensionYaml))
+
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		if err := m.createPlaceholder(basePath, template); err != nil {
+			return fmt.Errorf("failed to create placeholder for %s: %w", name, err)
+		}
+
+		m.registry[name] = &ConfigMeta{
+			Name:       name,
+			StructType: t,
+			OnUpdate:   callback,
+			IsUsed:     true,
+		}
+
+		return ErrPlaceholderCreated
+	}
+
 	cfg, err := m.loadAndMerge(name, t)
 	if err != nil {
 		return err
@@ -90,11 +108,9 @@ func (m *Manager) Register(
 	m.registry[name] = meta
 
 	if callback != nil {
-		m.log.Debug("executing initial configuration callback", zap.String("config", name))
 		callback(cfg, true)
 	}
 
-	m.log.Info("configuration registered and active", zap.String("config", name))
 	return nil
 }
 

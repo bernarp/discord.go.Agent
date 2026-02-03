@@ -1,4 +1,3 @@
-// cmd/app.go
 package main
 
 import (
@@ -24,14 +23,14 @@ type App struct {
 }
 
 func New() (*App, error) {
-	logger, err := zap_logger.New()
-	if err != nil {
-		return nil, fmt.Errorf("app logger: %w", err)
-	}
-
 	cfg, err := config.New()
 	if err != nil {
 		return nil, fmt.Errorf("app config: %w", err)
+	}
+
+	logger, err := zap_logger.New()
+	if err != nil {
+		return nil, fmt.Errorf("app logger: %w", err)
 	}
 
 	configMgr, err := config_manager.New(logger, "config_df", "config_mrg")

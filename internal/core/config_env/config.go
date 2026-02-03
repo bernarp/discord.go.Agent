@@ -1,10 +1,8 @@
 package config
 
 import (
+	"DiscordBotAgent/internal/core/startup"
 	"fmt"
-	"os"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -12,13 +10,9 @@ type Config struct {
 }
 
 func New() (*Config, error) {
-	if err := godotenv.Load(".env.dev"); err != nil {
-		return nil, fmt.Errorf("config load: %w", err)
-	}
-
-	token := os.Getenv("BOT_TOKEN")
-	if token == "" {
-		return nil, fmt.Errorf("config: BOT_TOKEN is empty")
+	token, err := startup.GetBotToken()
+	if err != nil {
+		return nil, fmt.Errorf("startup: %w", err)
 	}
 
 	return &Config{
