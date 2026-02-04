@@ -9,4 +9,5 @@ const (
 	GuildDelete EventType = "guild.delete"
 
 	ReadyDiscordGateway EventType = "discordapi.bot.ready"
+	InteractionCreate   EventType = "discordapi.interaction.create"
 )

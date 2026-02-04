@@ -58,6 +58,15 @@ func (c *Client) registerInternalHandlers() {
 			c.eb.Publish(eventbus.ReadyDiscordGateway, r)
 		},
 	)
+	
+	c.Session.AddHandler(
+		func(
+			s *discordgo.Session,
+			i *discordgo.InteractionCreate,
+		) {
+			c.eb.Publish(eventbus.InteractionCreate, i)
+		},
+	)
 }
 
 func (c *Client) Connect() error {

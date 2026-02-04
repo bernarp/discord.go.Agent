@@ -322,3 +322,12 @@ func (m *Manager) PrintReport() {
 		m.log.Info("module status", fields...)
 	}
 }
+
+func (m *Manager) IsModuleEnabled(name string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if state, ok := m.modules[name]; ok {
+		return state.isEnabled()
+	}
+	return false
+}
