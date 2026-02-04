@@ -1,96 +1,72 @@
+# DiscordBotAgent: Core Infrastructure
 
-# Discord Bot Agent
-
-## Installation
-
-```bash
-go mod download
-
-```
-
-## Running the Bot
-
-```bash
-go run ./cmd
-
-```
-
-## Environment and Secrets Management
-
-The bot requires four core parameters: **Bot Token**, **Application ID**, **Guild ID**, and **API Port**. It resolves them in this order:
-
-### 1. Environment Variables (.env) — Recommended
-
-The system checks for a `.env` file in the root directory:
-
-* `BOT_TOKEN`
-* `APP_ID`
-* `GUILD_ID`
-* `PORT`
-* `PREFIX`
-
-### 2. Encrypted Files (.enc) — Native Hardware Binding
-
-If environment variables are missing, the bot uses the following hardware-bound encrypted files:
-
-* **`token.enc`**: Discord Bot Token.
-* **`appid.enc`**: Discord Application ID (required for command sync).
-* **`guildid.enc`**: Target Guild ID (for instant command updates).
-* **`port.enc`**: API Server Port.
-* **`prefix.enc`**: Prefix commands. 
-
-**Technical Specifications:**
-
-* **Encryption**: AES-GCM.
-* **Key Derivation**: Tied to the local hardware ID (`machineid`).
-* **Portability**: These files are **non-portable**. They cannot be decrypted on a different machine.
-* **Initial Setup**: If neither `.env` nor `.enc` files exist, the bot will prompt you to enter these values in the terminal and generate the `.enc` files automatically.
+The **Configuration Manager** and **Functional Modules** form the core infrastructure of the DiscordBotAgent. The following sections detail their implementation and interaction.
 
 ---
 
-## Configuration System
+## Configuration Manager
 
-### config_df/
+The `config_manager` package handles the loading, validation, and monitoring of configuration files. It operates independently of the business logic, providing data to registered consumers.
 
-* **Default Settings**: Contains default YAML for each module.
-* **Placeholders**: If a config is missing, the bot generates a template. Modules stay disabled until the placeholder is filled.
+### File Loading and Merging
+The `Manager` struct initializes with two directory paths: a default path (`config_df`) and a merge path (`config_mrg`). The loading process uses a deep merge strategy:
 
-### config_mrg/
+* **Base Load:** The system reads the base YAML file from the default directory.
+* **Merge Override:** It checks the merge directory for a file with the `MERGE.` prefix. If found, the system reads this file and recursively overwrites values in the base map using `deepMerge`.
+* **Unmarshal:** The merged map is unmarshaled into the target struct using a strict decoder (`KnownFields(true)`) to detect undefined fields.
 
-* **Overrides**: Uses the `MERGE.` prefix (e.g., `MERGE.system.discord.yaml`).
-* **Deep Merge**: Values here override defaults in `config_df`.
+### Registration and Placeholders
+Modules register their configurations via `Manager.Register`. This method accepts a config name, a template struct, and an update callback.
 
-### Hot-Reload
+* If the configuration file does not exist or is empty, `createPlaceholder` generates a file using the provided template and writes a header explaining how to enable the module.
+* The function returns `ErrPlaceholderCreated`, signaling the caller that the module cannot start immediately.
 
-The bot watches both directories using `fsnotify`. Saving a YAML file triggers an immediate config update and module state refresh without a restart.
+### Validation
+Before a configuration is applied, it passes through `ConfigValidator`. This component uses the `go-playground/validator` library to enforce rules defined in struct tags (e.g., `validate:"required"`, `validate:"gte=0"`). Invalid configurations prevent the update from proceeding.
 
----
+### Hot-Reloading
+The manager utilizes `fsnotify` to watch both configuration directories. Upon detecting a `Write`, `Create`, or `Remove` event:
 
-## Interaction Orchestration
-
-The bot uses a decoupled pipeline to handle Discord interactions:
-
-* **Interaction Manager**: The orchestrator. It listens for `InteractionCreate` via the `EventBus`, logs metadata, and routes requests.
-* **Commands Handler**:
-* Automatically triggers a **Deferred Response** ("Thinking...").
-* Validates module status before execution.
-* Uses **Webhook API** (`InteractionResponseEdit`) for the final execution result.
-
-
+1.  **Debounce:** A timer delays execution (200ms) to prevent multiple triggers during a single file save.
+2.  **Reload:** The system calls `reloadConfig`, which re-executes the load, merge, and validation steps.
+3.  **Callback:** If valid, the new configuration replaces the old one in the registry, and the registered callback function is executed. If invalid, the error is logged, and the current state remains unchanged.
 
 ---
 
-## Project Structure
+## Functional Modules
 
-* `cmd/`: App entry point and graceful shutdown.
-* `internal/core/`:
-* `config_manager`: Loading, merging, and watching configs.
-* `module_manager`: Lifecycle and dependency management.
-* `eventbus`: Asynchronous internal event distribution.
-* `startup`: Secret validation, terminal prompts, and hardware-bound encryption.
+The `module_manager` package controls the lifecycle of bot features. It enforces a specific interface and manages dependencies between modules.
 
+### Module Interface
+Components must implement the `Module` interface defined in `internal/core/module_manager/base.go`:
 
-* `internal/client/`: Discord session, orchestrator, and command handlers.
-* `internal/modules/`: Functional bot modules (e.g., `template`).
+* `Name()`: Returns the module identifier.
+* `ConfigKey()`: Returns the filename identifier for the configuration.
+* `ConfigTemplate()`: Returns the default configuration struct.
+* `OnEnable(ctx, cfg)`: Executed when the module starts.
+* `OnDisable(ctx)`: Executed when the module stops.
+* `OnConfigUpdate(ctx, cfg)`: Executed when configuration changes occur at runtime.
+
+### State Management
+The manager tracks the state of each module: `disabled`, `enabled`, `error`, or `dependency_disabled`.
+
+* **Registration:** `Manager.Register` scans the module struct using reflection (`scanDependencies`) to identify fields that implement the `Module` interface. These are recorded as dependencies.
+* **Enabling:** `tryEnable` verifies that all recorded dependencies are registered and in the enabled state. If a dependency is missing or disabled, the target module transitions to `dependency_disabled` or `error`.
+* **Disabling:** When a module is disabled (manually or via config error), `disableDependents` recursively finds and disables any modules that depend on it.
 
 ---
+
+## Integration and Workflow
+
+The `app.go` file initializes both managers and links them.
+
+1.  **Initialization:** The `module_manager` is initialized with a reference to the `config_manager`.
+2.  **Binding:** When a module registers with `module_manager`, it registers its config with `config_manager`, passing `m.onConfigUpdate` as the callback.
+3.  **Runtime Flow:**
+    * When `config_manager` detects a file change, it invokes the callback.
+    * `module_manager` receives the update.
+    * If the config is valid, it calls `module.OnConfigUpdate`.
+    * If the config is invalid, it calls `module.OnDisable` and propagates the disable signal to downstream dependencies.
+
+### Example Implementation
+The `template2` module demonstrates dependency injection. It holds a reference to `template.Module` in its struct. During registration, the `module_manager` detects this field via reflection, ensuring `template2` only enables if `template` is active.
