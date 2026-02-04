@@ -58,7 +58,7 @@ func (h *CommandsHandler) Handle(
 		}
 	}
 
-	if err := wrapper.Cmd.Execute(ctx, i); err != nil {
+	if err := wrapper.Cmd.Execute(ctx, s, i); err != nil {
 		h.log.Error(
 			"command execution failed",
 			zap.String("command", data.Name),

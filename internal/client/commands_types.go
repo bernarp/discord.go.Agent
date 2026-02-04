@@ -24,6 +24,7 @@ type CommandSlash interface {
 	Info() CommandInfo
 	Execute(
 		ctx context.Context,
+		s *discordgo.Session,
 		i *discordgo.InteractionCreate,
 	) error
 }

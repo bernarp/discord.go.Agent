@@ -16,6 +16,11 @@ type CommandWrapper struct {
 	ModuleName string
 }
 
+type ButtonWrapper struct {
+	Btn        Button
+	ModuleName string
+}
+
 type InteractionHandler interface {
 	Handle(
 		ctx context.Context,
@@ -25,11 +30,22 @@ type InteractionHandler interface {
 	)
 }
 
+type ButtonInteractionHandler interface {
+	Handle(
+		ctx context.Context,
+		s *discordgo.Session,
+		i *discordgo.InteractionCreate,
+		wrapper ButtonWrapper,
+	)
+}
+
 type Manager struct {
 	log        *zap_logger.Logger
 	session    *discordgo.Session
 	commands   map[string]CommandWrapper
+	buttons    map[string]ButtonWrapper
 	cmdHandler InteractionHandler
+	btnHandler ButtonInteractionHandler
 	mu         sync.RWMutex
 }
 
@@ -37,12 +53,15 @@ func NewInteraction(
 	log *zap_logger.Logger,
 	session *discordgo.Session,
 	cmdHandler InteractionHandler,
+	btnHandler ButtonInteractionHandler,
 ) *Manager {
 	return &Manager{
 		log:        log,
 		session:    session,
 		commands:   make(map[string]CommandWrapper),
+		buttons:    make(map[string]ButtonWrapper),
 		cmdHandler: cmdHandler,
+		btnHandler: btnHandler,
 	}
 }
 
@@ -59,6 +78,21 @@ func (m *Manager) Register(
 		ModuleName: moduleName,
 	}
 	m.log.Info("registered command", zap.String("name", info.Name), zap.String("module", moduleName))
+}
+
+func (m *Manager) RegisterButton(
+	btn Button,
+	moduleName string,
+) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	id := btn.ID()
+	m.buttons[id] = ButtonWrapper{
+		Btn:        btn,
+		ModuleName: moduleName,
+	}
+	m.log.Info("registered button", zap.String("id", id), zap.String("module", moduleName))
 }
 
 func (m *Manager) SyncCommands(cfg *config.Config) error {
@@ -131,6 +165,17 @@ func (m *Manager) HandleInteraction(
 			return
 		}
 		m.cmdHandler.Handle(ctx, m.session, event, wrapper)
+
+	case discordgo.InteractionMessageComponent:
+		m.mu.RLock()
+		wrapper, exists := m.buttons[targetName]
+		m.mu.RUnlock()
+
+		if !exists {
+			m.log.Debug("button handler not found", zap.String("id", targetName))
+			return
+		}
+		m.btnHandler.Handle(ctx, m.session, event, wrapper)
 
 	case discordgo.InteractionModalSubmit:
 		m.log.Debug("modal routing not implemented", zap.String("id", targetName))
